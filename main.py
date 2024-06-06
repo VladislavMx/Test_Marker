@@ -1,62 +1,33 @@
 import cv2
-import numpy as np
-from keras.models import load_model
+import pytesseract
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+image = cv2.imread('image.jpg')
+gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+_, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)
+contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+output = image.copy()
+line_count = 0
+for contour in contours:
+
+    x, y, w, h = cv2.boundingRect(contour)
+
+    cv2.rectangle(output, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+    text = pytesseract.image_to_string(gray[y:y + h, x:x + w])
 
 
-model = load_model(r'C:\Users\Admin\PycharmProjects\pythonProject5\model\model.h5')
+    if text.strip() != '':
+        line_count += 1
+        print(f"Текст строки {line_count}: {text.strip()}")
 
 
-def preprocess_image(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    blur = cv2.GaussianBlur(gray, (5, 5), 0)
-    thresh = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 4)
-    return thresh
+cv2.imshow('временноефывафыва', output)
+cv2.waitKey(0)
+cv2.destroyAllWindows()
 
 
-def detect_text_skew(image):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    edges = cv2.Canny(gray, 50, 150, apertureSize=3)
-    lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=100, minLineLength=100, maxLineGap=10)
-    angles = []
-    for line in lines:
-        x1, y1, x2, y2 = line[0]
-        angle = np.arctan2(y2 - y1, x2 - x1) * 180.0 / np.pi
-        angles.append(angle)
-    return np.mean(angles)
+print(f"количество строк: {line_count}")
 
-
-def rotate_image(image, angle):
-    (h, w) = image.shape[:2]
-    center = (w // 2, h // 2)
-    M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    rotated_image = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-    return rotated_image
-
-
-def recognize_text_with_model(image):
-
-    processed_image = preprocess_image(image)
-
-    prediction = model.predict(processed_image.reshape(1, processed_image.shape[0], processed_image.shape[1], 1))
-
-    detected_text = ''.join(prediction)
-    return detected_text
-
-
-image_path = 'img.png'
-image = cv2.imread(image_path)
-
-# Предварительная обработка изображения
-processed_image = preprocess_image(image)
-
-# Определение угла наклона текста
-text_skew_angle = detect_text_skew(image)
-
-# Поворот изображения на найденный угол
-rotated_image = rotate_image(image, text_skew_angle)
-
-# Распознавание текста с использованием модели
-detected_text = recognize_text_with_model(rotated_image)
-
-print("Detected Text:", detected_text)
+print("координаты:")
 
